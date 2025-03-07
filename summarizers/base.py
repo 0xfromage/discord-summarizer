@@ -42,7 +42,7 @@ class BaseSummarizer(ABC):
     def generate_summary(
         self,
         messages: List[DiscordMessage], 
-        channel_name: str,
+        channel_name: str,  
         prompt_type: Optional[str] = None, 
         override_system_prompt: Optional[str] = None, 
         override_user_prompt: Optional[str] = None
@@ -52,7 +52,7 @@ class BaseSummarizer(ABC):
         
         Args:
             messages: List of messages to summarize
-            channel_name: Name of the channel
+            channel_name: Name of the topic or channel
             prompt_type: Type of prompt to use (optional)
             override_system_prompt: Custom system prompt (optional)
             override_user_prompt: Custom user prompt (optional)
@@ -62,38 +62,23 @@ class BaseSummarizer(ABC):
         """
         pass
     
-    # Update the create_summary_object method in BaseSummarizer class (summarizers/base.py)
-# Replace the existing method with this one:
 
     def create_summary_object(
         self, 
         content: str, 
         messages: List[DiscordMessage], 
-        channel_name: str, 
+        channel_name: str,  # Change from channel_name to channel_name for consistency
         channel_id: str,
         provider_name: Optional[str] = None
     ) -> DiscordSummary:
-        """
-        Create a summary object from the generated content.
-        
-        Args:
-            content: Generated summary content
-            messages: List of messages that were summarized
-            channel_name: Name of the channel
-            channel_id: ID of the channel
-            provider_name: Name of the provider that generated the summary
-            
-        Returns:
-            DiscordSummary object
-        """
         # Use the provided provider name or default to the class provider name
         actual_provider = provider_name or self.provider_name
         
         return DiscordSummary(
             content=content,
-            title=f"Discord Summary: {channel_name}",
+            title=f"Discord Summary: {channel_name}",  # Update this too
             channel_id=channel_id,
-            channel_name=channel_name,
+            channel_name=channel_name,  # And this
             message_count=len(messages),
             provider_name=actual_provider
         )

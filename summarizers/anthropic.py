@@ -17,17 +17,18 @@ class AnthropicSummarizer(BaseSummarizer):
         """
         super().__init__(api_key)
         self.client = Anthropic(api_key=api_key)
-    
+        
     def generate_summary(
         self, 
-        message_texts, 
-        topic_name=None,  # Changed parameter name from channel_name to topic_name 
+        messages,  # Changed from message_texts to messages
+        channel_name=None,
         prompt_type=None, 
         override_system_prompt=None, 
         override_user_prompt=None
     ):
         try:
-            # Combine messages
+            # Convert DiscordMessage objects to text format
+            message_texts = [message.formatted_content for message in messages]
             combined_text = "\n".join(message_texts)
             
             # Truncate text if too long
@@ -38,7 +39,7 @@ class AnthropicSummarizer(BaseSummarizer):
             
             # Get appropriate prompts with potential overrides
             prompts = PromptTemplates.get_prompts(
-                topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
+                channel_name=channel_name,  # Parameter name matches what PromptTemplates expects
                 prompt_type=prompt_type,
                 override_system_prompt=override_system_prompt,
                 override_user_prompt=override_user_prompt
@@ -54,7 +55,7 @@ class AnthropicSummarizer(BaseSummarizer):
                         "role": "user",
                         "content": PromptTemplates.format_user_prompt(
                             combined_text, 
-                            topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
+                            channel_name=channel_name,  # Parameter name matches what PromptTemplates expects
                             prompt_type=prompt_type,
                             override_system_prompt=override_system_prompt,
                             override_user_prompt=override_user_prompt

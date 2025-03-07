@@ -78,11 +78,11 @@ class SummaryGeneratorService:
             summary = self.summarizer.create_summary_object(
                 content=summary_text,
                 messages=messages,
-                channel_name=channel_name,
+                channel_name=channel_name,  # Change this to match what the base method expects
                 channel_id=channel_id,
                 provider_name=provider_name
             )
-            
+                        
             elapsed_time = (datetime.now() - start_time).total_seconds()
             logger.info(f"Summary generated for {channel_name} in {elapsed_time:.2f} seconds")
             
@@ -91,13 +91,12 @@ class SummaryGeneratorService:
         except Exception as e:
             logger.error(f"Error generating summary for channel {channel_id}: {str(e)}")
             return None
-    
-    # Update the _generate_summary_with_fallback method in services/summary_generator.py
+
 
     async def _generate_summary_with_fallback(
         self, 
         messages, 
-        topic_name=None,  # Parameter should match what's expected in summarizers
+        channel_name=None,  # Parameter should match what's expected in summarizers
         prompt_type=None
     ):
         """
@@ -105,7 +104,7 @@ class SummaryGeneratorService:
         
         Args:
             messages: List of messages to summarize
-            topic_name: Name of the channel or topic
+            channel_name: Name of the channel
             prompt_type: Type of prompt to use
             
         Returns:
@@ -115,7 +114,7 @@ class SummaryGeneratorService:
             # Try with the primary summarizer
             summary_text = self.summarizer.generate_summary(
                 messages=messages,
-                topic_name=topic_name,  # Must match parameter name in summarizer
+                channel_name=channel_name,  # Must match parameter name in summarizer
                 prompt_type=prompt_type
             )
             
@@ -157,7 +156,7 @@ class SummaryGeneratorService:
             # Try with fallback summarizer
             fallback_summary = fallback_summarizer.generate_summary(
                 messages=messages,
-                topic_name=topic_name,  # Must match parameter name in summarizer
+                channel_name=channel_name,  # Must match parameter name in summarizer
                 prompt_type=prompt_type
             )
             
@@ -205,7 +204,7 @@ class SummaryGeneratorService:
             # Generate summary with fallback
             summary_text, provider_name = await self._generate_summary_with_fallback(
                 messages=messages,
-                topic_name=channel_name,
+                channel_name=channel_name,
                 prompt_type=prompt_type
             )
             
@@ -216,12 +215,12 @@ class SummaryGeneratorService:
             
             # Create summary object
             summary = self.summarizer.create_summary_object(
-                content=summary_text,
-                messages=messages,
-                topic_name=channel_name,
-                channel_id=channel_id,
-                provider_name=provider_name
-            )
+            content=summary_text,
+            messages=messages,
+            channel_name=channel_name,  # This needs to be changed to channel_name
+            channel_id=channel_id,
+            provider_name=provider_name
+        )
             
             results[channel_id] = summary
         
@@ -260,7 +259,7 @@ class SummaryGeneratorService:
         # Generate combined summary with fallback
         summary_text, provider_name = await self._generate_summary_with_fallback(
             messages=all_messages,
-            topic_name="All Channels",
+            channel_name="All Channels",
             prompt_type="general"
         )
         
@@ -272,7 +271,7 @@ class SummaryGeneratorService:
         summary = self.summarizer.create_summary_object(
             content=summary_text,
             messages=all_messages,
-            channel_name="All Channels",
+            channel_name="All Channels",  # This needs to be changed to channel_name
             channel_id="combined",
             provider_name=provider_name
         )

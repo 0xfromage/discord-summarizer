@@ -24,16 +24,17 @@ class DeepSeekSummarizer(BaseSummarizer):
     
     def generate_summary(
         self, 
-        message_texts, 
-        topic_name=None,  # Changed parameter name from channel_name to topic_name
+        messages,  # Changed from message_texts to messages
+        channel_name=None,
         prompt_type=None, 
         override_system_prompt=None, 
         override_user_prompt=None
     ):
         try:
-            # Combine messages
+            # Convert DiscordMessage objects to text format
+            message_texts = [message.formatted_content for message in messages]
             combined_text = "\n".join(message_texts)
-            
+                
             # Limit combined text length
             max_tokens = 12000  # DeepSeek has smaller context window
             if len(combined_text) > max_tokens:
@@ -42,7 +43,7 @@ class DeepSeekSummarizer(BaseSummarizer):
             
             # Get appropriate prompts with potential overrides
             prompts = PromptTemplates.get_prompts(
-                topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
+                channel_name=channel_name,  # Parameter name matches what PromptTemplates expects
                 prompt_type=prompt_type,
                 override_system_prompt=override_system_prompt,
                 override_user_prompt=override_user_prompt
@@ -63,7 +64,7 @@ class DeepSeekSummarizer(BaseSummarizer):
                         "role": "user", 
                         "content": PromptTemplates.format_user_prompt(
                             combined_text, 
-                            topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
+                            channel_name=channel_name,  # Parameter name matches what PromptTemplates expects
                             prompt_type=prompt_type,
                             override_system_prompt=override_system_prompt,
                             override_user_prompt=override_user_prompt
