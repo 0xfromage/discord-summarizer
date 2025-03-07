@@ -112,14 +112,24 @@ async def run_once(components: Dict[str, Any]) -> None:
     
     logger.info("Running summary generation once (DUMMY MODE)")
     
-    await discord_writer.start()
+    # Only log in but don't start the full client (non-blocking)
+    if hasattr(discord_writer, 'client'):  # Check if real client
+        await discord_writer.client.login(discord_writer.token)
+        discord_writer.is_ready = True
+        discord_writer.ready_event.set()
+    else:
+        # Handle dummy writer
+        await discord_writer.start()
+    
     await discord_writer.wait_until_ready()
     
     # Generate and post summaries
     await summary_scheduler.run_now()
     
+    # Allow time for API calls to complete
+    await asyncio.sleep(5)
+    
     logger.info("One-time summary generation completed (DUMMY MODE)")
-
 async def main() -> None:
     """
     Main application entry point for dummy mode.

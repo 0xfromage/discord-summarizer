@@ -155,6 +155,15 @@ async def shutdown() -> None:
     scheduler = app_components.get('summary_scheduler')
     if scheduler:
         await scheduler.stop()
+
+    # Close Discord client gracefully
+    discord_writer = app_components.get('discord_writer')
+    if discord_writer and hasattr(discord_writer, 'client'):
+        try:
+            await discord_writer.client.close()
+            logger.info("Discord client closed")
+        except Exception as e:
+            logger.error(f"Error closing Discord client: {e}")
     
     # Set shutdown event
     shutdown_event.set()
