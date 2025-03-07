@@ -1,10 +1,3 @@
-"""
-Enhanced Discord Summary Bot Main Script
-
-This version includes additional wait time at the end to ensure
-Discord operations complete properly in run-once mode.
-"""
-
 import asyncio
 import logging
 import signal
@@ -84,20 +77,23 @@ async def run_once(components: Dict[str, Any]) -> None:
     
     # Initialize Discord writer first
     logger.info("Initializing Discord writer for one-time run")
-    await discord_writer.start()
-    
-    # Wait for the Discord client to be ready
-    await discord_writer.wait_until_ready()
-    logger.info("Discord writer ready, generating summary")
-    
-    # Run summary generation
-    await summary_scheduler.run_now()
-    
-    # Give Discord operations time to complete
-    logger.info("Waiting for Discord operations to complete...")
-    await asyncio.sleep(10)  # Wait 10 seconds to ensure message posting completes
-    
-    logger.info("One-time summary generation completed")
+    try:
+        await discord_writer.start()
+        
+        # Wait for the Discord client to be ready
+        await discord_writer.wait_until_ready()
+        logger.info("Discord writer ready, generating summary")
+        
+        # Run summary generation
+        await summary_scheduler.run_now()
+        
+        # Give Discord operations time to complete
+        logger.info("Waiting for Discord operations to complete...")
+        await asyncio.sleep(10)  # Wait 10 seconds to ensure message posting completes
+        
+        logger.info("One-time summary generation completed")
+    except Exception as e:
+        logger.error(f"Error in run_once: {e}")
 
 async def run_scheduled(components: Dict[str, Any]) -> None:
     """
@@ -137,10 +133,16 @@ def setup_signal_handlers() -> None:
     """
     Set up signal handlers for graceful shutdown.
     """
-    loop = asyncio.get_running_loop()
-    
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown()))
+    try:
+        loop = asyncio.get_running_loop()
+        
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown()))
+    except NotImplementedError:
+        # Windows doesn't support add_signal_handler
+        pass
+    except Exception as e:
+        print(f"Failed to set up signal handlers: {e}")
 
 async def shutdown() -> None:
     """
@@ -185,8 +187,11 @@ async def main() -> None:
             await shutdown_event.wait()
     
     except Exception as e:
-        logger = app_components.get('logger', logging.getLogger())
-        logger.error(f"Unhandled exception: {e}", exc_info=True)
+        try:
+            logger = app_components.get('logger', logging.getLogger())
+            logger.error(f"Unhandled exception: {e}", exc_info=True)
+        except:
+            print(f"Fatal error: {e}")
         
         # Ensure clean shutdown
         if not shutdown_event.is_set():

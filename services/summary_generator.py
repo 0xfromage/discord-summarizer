@@ -92,10 +92,12 @@ class SummaryGeneratorService:
             logger.error(f"Error generating summary for channel {channel_id}: {str(e)}")
             return None
     
+    # Update the _generate_summary_with_fallback method in services/summary_generator.py
+
     async def _generate_summary_with_fallback(
         self, 
         messages, 
-        channel_name, 
+        topic_name=None,  # Parameter should match what's expected in summarizers
         prompt_type=None
     ):
         """
@@ -103,7 +105,7 @@ class SummaryGeneratorService:
         
         Args:
             messages: List of messages to summarize
-            channel_name: Name of the channel
+            topic_name: Name of the channel or topic
             prompt_type: Type of prompt to use
             
         Returns:
@@ -113,7 +115,7 @@ class SummaryGeneratorService:
             # Try with the primary summarizer
             summary_text = self.summarizer.generate_summary(
                 messages=messages,
-                channel_name=channel_name,
+                topic_name=topic_name,  # Must match parameter name in summarizer
                 prompt_type=prompt_type
             )
             
@@ -124,6 +126,7 @@ class SummaryGeneratorService:
             logger.warning("Primary summarizer failed, trying fallback...")
             
             # Determine current provider and create a fallback
+            import os
             from config.settings import LLMProvider
             from summarizers import create_summarizer
             
@@ -154,7 +157,7 @@ class SummaryGeneratorService:
             # Try with fallback summarizer
             fallback_summary = fallback_summarizer.generate_summary(
                 messages=messages,
-                channel_name=channel_name,
+                topic_name=topic_name,  # Must match parameter name in summarizer
                 prompt_type=prompt_type
             )
             
@@ -202,7 +205,7 @@ class SummaryGeneratorService:
             # Generate summary with fallback
             summary_text, provider_name = await self._generate_summary_with_fallback(
                 messages=messages,
-                channel_name=channel_name,
+                topic_name=channel_name,
                 prompt_type=prompt_type
             )
             
@@ -215,7 +218,7 @@ class SummaryGeneratorService:
             summary = self.summarizer.create_summary_object(
                 content=summary_text,
                 messages=messages,
-                channel_name=channel_name,
+                topic_name=channel_name,
                 channel_id=channel_id,
                 provider_name=provider_name
             )
@@ -257,7 +260,7 @@ class SummaryGeneratorService:
         # Generate combined summary with fallback
         summary_text, provider_name = await self._generate_summary_with_fallback(
             messages=all_messages,
-            channel_name="All Channels",
+            topic_name="All Channels",
             prompt_type="general"
         )
         

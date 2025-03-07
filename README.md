@@ -17,20 +17,6 @@ The bot supports a workflow where:
 1. You monitor channels on Server A (using your personal user token)
 2. The bot posts summaries to a channel on Server B (using a bot token)
 
-To set this up correctly:
-
-1. Make sure your personal token has access to read the source channels
-2. Ensure your bot is invited to the destination server with proper permissions
-3. Configure your `.env` file with the correct channel IDs
-
-### Bot Permissions Required
-
-When inviting your bot to the destination server, it needs these permissions:
-
-- Read Messages/View Channels
-- Send Messages
-- Embed Links
-
 ## Setup
 
 ### Prerequisites
@@ -71,7 +57,7 @@ To find your Discord user token:
 Use the included utility to find server and channel IDs:
 
 ```bash
-python -m utils.discord_explorer
+python utils/discord_explorer.py
 ```
 
 Follow the prompts to select a server and view all available text channels.
@@ -108,6 +94,8 @@ DISCORD_DESTINATION_CHANNEL_ID=345678901234567890
 
 # LLM Provider (options: 'deepseek' or 'anthropic')
 LLM_PROVIDER=anthropic
+
+# It's recommended to provide both API keys for fallback functionality
 ANTHROPIC_API_KEY=your_anthropic_key_here
 DEEPSEEK_API_KEY=your_deepseek_key_here
 
@@ -122,19 +110,35 @@ DEBUG=false
 
 ## Usage
 
-Run the application:
+Run the application in standard mode (scheduled):
 
 ```bash
 python main.py
 ```
 
-The bot will run according to your configured schedule, collecting messages from the specified Discord channels, summarizing them, and posting the summaries to your destination channel.
-
-For a one-time run without scheduling:
+Or run it once without scheduling:
 
 ```bash
 python main.py --run-once
 ```
+
+## How It Works
+
+1. The bot uses your Discord user token to collect messages from the configured channels
+2. It extracts messages from the specified time period (default: last 24 hours)
+3. The collected messages are sent to an AI service for summarization
+   - The bot will automatically fall back to an alternative AI service if the primary one fails
+4. The summary is posted to the configured Discord channel using a bot token
+
+## Project Structure
+
+- `main.py` - Main application entry point
+- `config/` - Configuration management
+- `clients/` - Discord reader and writer implementations
+- `models/` - Data models for messages and summaries
+- `services/` - Core services (message collection, summary generation, scheduling)
+- `summarizers/` - AI summarization components
+- `utils/` - Helper utilities
 
 ## Troubleshooting
 
@@ -146,4 +150,17 @@ Common issues:
 
 3. **"Error posting summary to Discord"**: Check that your bot token is correct and that the bot has the necessary permissions (Send Messages, Embed Links).
 
-Check the `logs/discord_summary_bot.log` file for detailed logging information if you encounter issues.
+4. **Authentication issues**: If you change your Discord password, your user token will be invalidated. You'll need to obtain a new token.
+
+Check the `logs/discord_summary_bot.log` file for detailed logging information.
+
+## Security Considerations
+
+- Your Discord user token grants full access to your account. Never share it with anyone.
+- Store the `.env` file securely and never commit it to version control.
+- The bot respects rate limits to avoid getting your account flagged.
+- This tool is for personal use only - mass scraping Discord data may violate Terms of Service.
+
+## License
+
+MIT

@@ -1,99 +1,70 @@
-"""
-Anthropic Claude Summarizer
-
-This module implements the summarizer interface using Anthropic's Claude API.
-"""
-
 import logging
-from typing import List, Optional, Dict, Any
-
 from anthropic import Anthropic
-from models.message import DiscordMessage
 from summarizers.base import BaseSummarizer
 from utils.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 
 class AnthropicSummarizer(BaseSummarizer):
-    """
-    Summarizer implementation using Anthropic's Claude API.
-    """
+    """Anthropic Claude implementation of the summarizer"""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key):
         """
-        Initialize the Claude summarizer.
+        Initialize with API key
         
         Args:
-            api_key: Anthropic API key
+            api_key (str): Anthropic API key
         """
         super().__init__(api_key)
         self.client = Anthropic(api_key=api_key)
-        self.model = "claude-3-7-sonnet-20250219"  # Use the latest model by default
     
     def generate_summary(
-        self,
-        messages: List[DiscordMessage], 
-        channel_name: str,
-        prompt_type: Optional[str] = None, 
-        override_system_prompt: Optional[str] = None, 
-        override_user_prompt: Optional[str] = None
-    ) -> Optional[str]:
-        """
-        Generate a summary using Claude.
-        
-        Args:
-            messages: List of messages to summarize
-            channel_name: Name of the channel
-            prompt_type: Type of prompt to use
-            override_system_prompt: Custom system prompt
-            override_user_prompt: Custom user prompt
-            
-        Returns:
-            Generated summary text or None if generation fails
-        """
+        self, 
+        message_texts, 
+        topic_name=None,  # Changed parameter name from channel_name to topic_name 
+        prompt_type=None, 
+        override_system_prompt=None, 
+        override_user_prompt=None
+    ):
         try:
-            if not messages:
-                logger.warning(f"No messages to summarize for {channel_name}")
-                return None
+            # Combine messages
+            combined_text = "\n".join(message_texts)
             
-            # Format messages for the prompt
-            formatted_messages = self._format_messages_for_prompt(messages)
+            # Truncate text if too long
+            max_tokens = 25000  # Increased for Claude
+            if len(combined_text) > max_tokens:
+                logger.warning(f"Truncating message text from {len(combined_text)} to {max_tokens} characters")
+                combined_text = combined_text[-max_tokens:]
             
-            # Truncate if necessary for token limits
-            formatted_messages = self._truncate_messages(formatted_messages, max_length=25000)
-            
-            # Get appropriate prompts
+            # Get appropriate prompts with potential overrides
             prompts = PromptTemplates.get_prompts(
-                channel_name=channel_name, 
+                topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
                 prompt_type=prompt_type,
                 override_system_prompt=override_system_prompt,
                 override_user_prompt=override_user_prompt
             )
             
-            logger.info(f"Generating summary for {channel_name} with Claude ({len(messages)} messages)")
-            
-            # Make the API call
+            # API call with prompts
             response = self.client.messages.create(
-                model=self.model,
+                model="claude-3-7-sonnet-20250219",
                 max_tokens=1000,
                 system=prompts['system_prompt'],
                 messages=[
                     {
                         "role": "user",
                         "content": PromptTemplates.format_user_prompt(
-                            formatted_messages, 
-                            channel_name=channel_name,
-                            prompt_type=prompt_type
+                            combined_text, 
+                            topic_name=topic_name,  # Parameter name matches what PromptTemplates expects
+                            prompt_type=prompt_type,
+                            override_system_prompt=override_system_prompt,
+                            override_user_prompt=override_user_prompt
                         )
                     }
                 ]
             )
             
-            summary_text = response.content[0].text
-            logger.info(f"Successfully generated summary for {channel_name}")
-            
-            return summary_text
-            
+            return response.content[0].text
+        
         except Exception as e:
-            logger.error(f"Error generating summary with Claude: {str(e)}")
-            return None
+            logger.error(f'Summary generation error: {e}')
+            return f"Unable to generate summary. Error: {str(e)}"
