@@ -20,7 +20,7 @@ from services.summary_generator import SummaryGeneratorService
 from services.summary_scheduler import SummarySchedulerService
 
 # Set to True to actually post to Discord, False for test only (no Discord posting)
-POST_TO_DISCORD = False
+POST_TO_DISCORD = True
 
 logger = logging.getLogger(__name__)
 

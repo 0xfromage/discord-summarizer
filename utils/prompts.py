@@ -137,7 +137,7 @@ class PromptTemplates:
     @classmethod
     def get_prompts(
         cls, 
-        topic_name: Optional[str] = None, 
+        channel_name: Optional[str] = None, 
         prompt_type: Optional[str] = None, 
         override_system_prompt: Optional[str] = None, 
         override_user_prompt: Optional[str] = None
@@ -152,7 +152,7 @@ class PromptTemplates:
         - Allows complete prompt overriding
 
         Args:
-            topic_name (Optional[str]): Context or topic of the conversation.
+            channel_name (Optional[str]): Context or topic of the conversation.
                 Used to select specialized prompts if no explicit type is provided.
             
             prompt_type (Optional[str]): Explicitly specified prompt type.
@@ -172,9 +172,9 @@ class PromptTemplates:
         if prompt_type and prompt_type in cls.SPECIALIZED_PROMPTS:
             # Explicit prompt type takes highest priority
             prompts = cls.SPECIALIZED_PROMPTS[prompt_type]
-        elif topic_name:
+        elif channel_name:
             # Try to find specialized prompt based on topic
-            topic_lower = topic_name.lower()
+            topic_lower = channel_name.lower()
             
             # Check for crypto/DeFi related keywords
             if any(term in topic_lower for term in ['defi', 'yield', 'farm', 'staking', 'liquidity', 'lp', 'lending', 'borrowing', 'amm', 'swap', 'stable']):
@@ -201,7 +201,7 @@ class PromptTemplates:
     def format_user_prompt(
         cls, 
         text: str, 
-        topic_name: Optional[str] = None, 
+        channel_name: Optional[str] = None, 
         prompt_type: Optional[str] = None,
         override_system_prompt: Optional[str] = None,
         override_user_prompt: Optional[str] = None
@@ -215,7 +215,7 @@ class PromptTemplates:
         Args:
             text (str): The conversation or text to be summarized.
             
-            topic_name (Optional[str]): Context or topic of the conversation.
+            channel_name (Optional[str]): Context or topic of the conversation.
             
             prompt_type (Optional[str]): Explicitly specified prompt type.
             
@@ -227,7 +227,7 @@ class PromptTemplates:
             str: A formatted user prompt ready for LLM submission.
         """
         prompts = cls.get_prompts(
-            topic_name=topic_name, 
+            channel_name=channel_name, 
             prompt_type=prompt_type,
             override_system_prompt=override_system_prompt,
             override_user_prompt=override_user_prompt
