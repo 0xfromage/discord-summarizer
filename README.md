@@ -9,6 +9,7 @@ This bot automatically summarizes content from Discord channels and posts the su
 - Posts formatted summaries to a Discord channel (can be on a different server)
 - Configurable scheduling
 - Modular architecture for easy maintenance
+- Supports offline/dummy mode for testing and development
 
 ## Cross-Server Functionality
 
@@ -110,6 +111,8 @@ DEBUG=false
 
 ## Usage
 
+### Standard Mode
+
 Run the application in standard mode (scheduled):
 
 ```bash
@@ -122,6 +125,56 @@ Or run it once without scheduling:
 python main.py --run-once
 ```
 
+### Dummy/Offline Mode
+
+The bot provides a "dummy mode" that uses locally stored data instead of connecting to Discord for reading messages. This is useful for testing and development.
+
+#### Extracting Data for Dummy Mode
+
+Before using dummy mode, you need to extract Discord data:
+
+```bash
+python data_extractor.py [days]
+```
+
+Where `[days]` is the number of days of history to extract (default: 4).
+
+This command will:
+
+1. Connect to Discord using your user token
+2. Extract messages from the configured channels
+3. Save the data locally in the `extracted_data` directory
+
+#### Running in Dummy Mode
+
+Once data is extracted, run the bot in dummy mode:
+
+```bash
+python main_dummy.py
+```
+
+By default, this will:
+
+1. Load messages from the local data
+2. Generate summaries using the configured LLM provider
+3. Post the summaries to your configured Discord channel
+
+#### Testing Prompts
+
+You can test different prompt configurations using the prompt tester:
+
+```bash
+python prompt_tester.py [--channel CHANNEL_ID] [--prompt PROMPT_TYPE] [--days DAYS]
+```
+
+Options:
+
+- `--channel` or `-c`: Specify a channel ID to test (default: all channels)
+- `--prompt` or `-p`: Specify a prompt type (e.g., 'defi', 'crypto')
+- `--days` or `-d`: Number of days of history to use (default: 4)
+
+This will save the generated summaries to the `prompt_test_results` directory.
+
 ## How It Works
 
 1. The bot uses your Discord user token to collect messages from the configured channels
@@ -133,6 +186,9 @@ python main.py --run-once
 ## Project Structure
 
 - `main.py` - Main application entry point
+- `main_dummy.py` - Entry point for dummy/offline mode
+- `data_extractor.py` - Utility to extract Discord data for dummy mode
+- `prompt_tester.py` - Utility to test different prompt configurations
 - `config/` - Configuration management
 - `clients/` - Discord reader and writer implementations
 - `models/` - Data models for messages and summaries
@@ -151,6 +207,8 @@ Common issues:
 3. **"Error posting summary to Discord"**: Check that your bot token is correct and that the bot has the necessary permissions (Send Messages, Embed Links).
 
 4. **Authentication issues**: If you change your Discord password, your user token will be invalidated. You'll need to obtain a new token.
+
+5. **Dummy mode errors**: If experiencing SSL or connection errors in dummy mode, try adding a delay with `await asyncio.sleep(5)` before program exits to allow all operations to complete.
 
 Check the `logs/discord_summary_bot.log` file for detailed logging information.
 
