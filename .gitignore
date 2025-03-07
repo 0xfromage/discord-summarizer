@@ -6,6 +6,8 @@ venv/
 .venv/
 env/
 ENV/
+extracted_data/
+
 
 # Telethon session files
 *.session
