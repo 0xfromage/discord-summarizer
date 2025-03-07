@@ -1,0 +1,16 @@
+# Discord
+discord.py
+requests
+
+# Configuration
+python-dotenv
+
+# Scheduling
+apscheduler
+
+# LLM Providers
+anthropic
+openai  # For DeepSeek's OpenAI-compatible API
+
+# Utilities
+python-dateutil

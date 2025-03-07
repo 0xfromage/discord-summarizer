@@ -1,0 +1,39 @@
+# Environment variables
+.env
+
+# Python virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Telethon session files
+*.session
+*_session
+telegram_to_discord_bot.session
+topic_finder_session
+channel_finder_session
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
