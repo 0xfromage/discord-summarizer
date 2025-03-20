@@ -54,31 +54,71 @@ class SummaryGeneratorService:
         logger.info(f"Generating summary for channel {channel_id}")
         
         try:
-            # Collect messages from the channel
-            messages, channel_name = await self.message_collector.collect_from_channel(channel_id, days)
+            # Collect messages from the channel including threads
+            messages, channel_name, thread_data = await self.message_collector.collect_from_channel(channel_id, days)
             
-            if not messages:
-                logger.warning(f"No messages found in channel {channel_name} for the past {days} day(s)")
+            if not messages and not any(thread_msgs for thread_msgs, _ in thread_data):
+                logger.warning(f"No messages found in channel {channel_name} or its threads for the past {days} day(s)")
                 return None
             
-            logger.info(f"Collected {len(messages)} messages from {channel_name}")
+            logger.info(f"Collected {len(messages)} messages from {channel_name} and {sum(len(t[0]) for t in thread_data)} messages from threads")
             
-            # Generate summary with fallback
-            summary_text, provider_name = await self._generate_summary_with_fallback(
-                messages=messages,
-                channel_name=channel_name,
-                prompt_type=prompt_type
-            )
+            # Generate summary for main channel
+            main_summary = None
+            if messages:
+                summary_text, provider_name = await self._generate_summary_with_fallback(
+                    messages=messages,
+                    channel_name=channel_name,
+                    prompt_type=prompt_type
+                )
+                
+                if not summary_text:
+                    logger.error(f"Failed to generate summary for {channel_name}")
+                    main_summary = None
+                else:
+                    main_summary = summary_text
+            else:
+                main_summary = "No messages in main channel during this period."
+                provider_name = self.summarizer.provider_name
             
-            if not summary_text:
-                logger.error(f"Failed to generate summary for {channel_name}")
+            # Process thread data if available
+            thread_summaries = []
+            for thread_messages, thread_name in thread_data:
+                if thread_messages:
+                    thread_summary_text, thread_provider = await self._generate_summary_with_fallback(
+                        messages=thread_messages,
+                        channel_name=f"{channel_name} > {thread_name}",
+                        prompt_type=prompt_type
+                    )
+                    
+                    if thread_summary_text:
+                        thread_summaries.append((thread_name, thread_summary_text))
+                        if not main_summary:  # If main channel had no summary but thread does
+                            provider_name = thread_provider
+            
+            # Combine main summary with thread summaries
+            combined_summary = ""
+            if main_summary:
+                combined_summary = main_summary
+            
+            if thread_summaries:
+                if combined_summary:
+                    combined_summary += "\n\n## Thread Summaries\n"
+                else:
+                    combined_summary = "## Thread Summaries\n"
+                    
+                for thread_name, thread_content in thread_summaries:
+                    combined_summary += f"\n### {thread_name}\n{thread_content}\n"
+            
+            if not combined_summary:
+                logger.error(f"Failed to generate any summaries for {channel_name} or its threads")
                 return None
             
             # Create summary object
             summary = self.summarizer.create_summary_object(
-                content=summary_text,
-                messages=messages,
-                channel_name=channel_name,  # Change this to match what the base method expects
+                content=combined_summary,
+                messages=messages + [msg for thread_msgs, _ in thread_data for msg in thread_msgs],
+                channel_name=channel_name,
                 channel_id=channel_id,
                 provider_name=provider_name
             )

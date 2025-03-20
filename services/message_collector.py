@@ -33,7 +33,7 @@ class MessageCollectorService:
         self.client = client
         self.config = config
     
-    async def collect_from_channel(self, channel_id: str, days: int = 1) -> Tuple[List[DiscordMessage], str]:
+    async def collect_from_channel(self, channel_id: str, days: int = 1) -> Tuple[List[DiscordMessage], str, List[Tuple[List[DiscordMessage], str]]]:
         """
         Collect messages from a single channel.
         
@@ -42,7 +42,7 @@ class MessageCollectorService:
             days: Number of days to look back
             
         Returns:
-            Tuple of (list of messages, channel name)
+            Tuple of (list of messages, channel name, list of (thread messages, thread name) tuples)
         """
         logger.info(f"Collecting messages from channel {channel_id} for the past {days} day(s)")
         return self.client.collect_messages(channel_id, days)
@@ -76,8 +76,8 @@ class MessageCollectorService:
         results = []
         for channel in text_channels:
             channel_id = channel.get('id')
-            messages, channel_name = await self.collect_from_channel(channel_id, days)
-            results.append((messages, channel_name))
+            messages, channel_name, thread_data = await self.collect_from_channel(channel_id, days)
+            results.append((messages, channel_name, thread_data))
         
         return results
     
@@ -101,8 +101,8 @@ class MessageCollectorService:
             logger.info(f"Collecting messages from {len(self.config.channel_ids)} configured channels")
             
             for channel_id in self.config.channel_ids:
-                messages, channel_name = await self.collect_from_channel(channel_id, days)
-                results[channel_id] = (messages, channel_name)
+                messages, channel_name, thread_data = await self.collect_from_channel(channel_id, days)
+                results[channel_id] = (messages, channel_name, thread_data)
         
         # If a guild ID is configured and we don't have specific channels, collect from the guild
         elif self.config.guild_id:

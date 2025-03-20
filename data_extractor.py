@@ -29,6 +29,7 @@ from models.message import DiscordMessage
 DATA_DIR = "extracted_data"
 PICKLE_FILE = os.path.join(DATA_DIR, "discord_messages.pkl")
 JSON_FILE = os.path.join(DATA_DIR, "discord_messages.json")
+THREAD_FILE = os.path.join(DATA_DIR, "discord_threads.pkl")
 
 async def extract_messages(days: int = 4):
     """
@@ -84,6 +85,51 @@ async def extract_messages(days: int = 4):
         
         # Add a small delay to avoid rate limiting
         await asyncio.sleep(1)
+    thread_data = {}
+    if hasattr(config.discord_reader, 'thread_ids') and config.discord_reader.thread_ids:
+        for thread_id in config.discord_reader.thread_ids:
+            logger.info(f"Collecting messages from thread {thread_id}")
+            thread_info = discord_reader.get_channel_info(thread_id)
+            if not thread_info:
+                logger.warning(f"Thread {thread_id} not found")
+                continue
+                
+            thread_name = thread_info.get('name', f"Thread {thread_id}")
+            parent_id = thread_info.get('parent_id', 'unknown')
+            
+            # Collect messages using the same method as for channels
+            thread_messages, _ = discord_reader.collect_messages(thread_id, days=days)
+            
+            logger.info(f"Collected {len(thread_messages)} messages from thread {thread_name}")
+            
+            # Store thread data
+            thread_data[thread_id] = {
+                "thread_name": thread_name,
+                "parent_id": parent_id,
+                "messages": [message.__dict__ for message in thread_messages]
+            }
+
+    # Save thread data
+    with open(THREAD_FILE, 'wb') as f:
+        pickle.dump(thread_data, f)
+
+    # Also save as JSON for readability
+    thread_json_data = {}
+    for thread_id, data in thread_data.items():
+        thread_json_data[thread_id] = {
+            "thread_name": data["thread_name"],
+            "parent_id": data["parent_id"],
+            "messages": []
+        }
+        
+        for msg_dict in data["messages"]:
+            msg_copy = msg_dict.copy()
+            if isinstance(msg_copy.get('timestamp'), datetime):
+                msg_copy['timestamp'] = msg_copy['timestamp'].isoformat()
+            thread_json_data[thread_id]["messages"].append(msg_copy)
+
+    with open(os.path.join(DATA_DIR, "discord_threads.json"), 'w', encoding='utf-8') as f:
+        json.dump(thread_json_data, f, ensure_ascii=False, indent=2)
     
     # Save data in pickle format (preserves DiscordMessage objects)
     with open(PICKLE_FILE, 'wb') as f:

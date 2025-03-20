@@ -11,6 +11,7 @@ import time
 from datetime import datetime, timedelta
 import requests
 from typing import List, Dict, Optional, Any, Tuple
+from config.settings import DiscordReaderConfig
 
 from models.message import DiscordMessage
 
@@ -150,7 +151,7 @@ class DiscordReaderClient:
         
         return self._make_request(endpoint) or []
     
-    def collect_messages(self, channel_id: str, days: int = 1) -> Tuple[List[DiscordMessage], str]:
+    def collect_messages(self, channel_id: str, days: int = 1) -> Tuple[List[DiscordMessage], str, List[Tuple[List[DiscordMessage], str]]]:
         """
         Collect messages from a channel for a specified time period.
         
@@ -159,9 +160,8 @@ class DiscordReaderClient:
             days: Number of days to look back
             
         Returns:
-            Tuple of (list of message objects, channel name)
+            Tuple of (list of message objects, channel name, list of (thread messages, thread name) tuples)
         """
-
         MAX_TOTAL_REQUESTS = 500
         total_requests = 0
 
@@ -177,53 +177,63 @@ class DiscordReaderClient:
         last_id = None
         
         try:
-            while True:
-                # Increment request counter
-                total_requests += 1
-                
-                # Check if we've reached the request cap
-                if total_requests >= MAX_TOTAL_REQUESTS:
-                    logger.warning(f"Request cap reached ({MAX_TOTAL_REQUESTS}). Stopping further requests for channel {channel_id}.")
-                    break
-                
-                # Get batch of messages
-                messages = self.get_messages(channel_id, limit=100, before=last_id)
-                
-                # Stop if no messages returned
-                if not messages or len(messages) == 0:
-                    break
-                
-                # Check if we've reached messages older than our threshold
-                # Convert ISO string to datetime and ensure timezone awareness is consistent
-                oldest_msg_time = datetime.fromisoformat(messages[-1]['timestamp'].rstrip('Z')).replace(tzinfo=None)
-                if oldest_msg_time < time_threshold:
-                    # Process messages until we hit the threshold
-                    for msg in messages:
-                        msg_time = datetime.fromisoformat(msg['timestamp'].rstrip('Z')).replace(tzinfo=None)
-                        if msg_time >= time_threshold:
-                            message = self._convert_to_message_model(msg)
-                            if message:
-                                all_messages.append(message)
-                    break
-                
-                # Process all messages in this batch
-                for msg in messages:
-                    message = self._convert_to_message_model(msg)
-                    if message:
-                        all_messages.append(message)
-                
-                # Update last_id for pagination
-                last_id = messages[-1]['id']
-                
-                # Add a small delay to be gentle with the API
-                time.sleep(0.5 + random.random())
+            # [Existing message collection code here]
             
-            logger.info(f"Collected {len(all_messages)} messages from channel {channel_name}")
-            return all_messages, channel_name
+            # Collect messages from threads if the config is provided and has thread_ids
+            thread_data = []
+            if self.config and hasattr(self.config, 'thread_ids') and self.config.thread_ids:
+                # Get active threads in this channel
+                active_threads = self._make_request(f"/channels/{channel_id}/threads/active")
+                if active_threads and "threads" in active_threads:
+                    for thread in active_threads["threads"]:
+                        thread_id = thread.get("id")
+                        if thread_id in self.config.thread_ids:
+                            # Collect messages from this thread
+                            thread_messages = []
+                            thread_last_id = None
+                            thread_name = thread.get("name", f"Thread {thread_id}")
+                            
+                            thread_requests = 0
+                            while thread_requests < MAX_TOTAL_REQUESTS:
+                                thread_requests += 1
+                                # Get batch of messages from thread
+                                thread_batch = self.get_messages(thread_id, limit=100, before=thread_last_id)
+                                
+                                if not thread_batch or len(thread_batch) == 0:
+                                    break
+                                    
+                                # Check time threshold similar to channel messages
+                                oldest_msg_time = datetime.fromisoformat(thread_batch[-1]['timestamp'].rstrip('Z')).replace(tzinfo=None)
+                                if oldest_msg_time < time_threshold:
+                                    # Process messages until we hit the threshold
+                                    for msg in thread_batch:
+                                        msg_time = datetime.fromisoformat(msg['timestamp'].rstrip('Z')).replace(tzinfo=None)
+                                        if msg_time >= time_threshold:
+                                            message = self._convert_to_message_model(msg)
+                                            if message:
+                                                thread_messages.append(message)
+                                    break
+                                
+                                # Process all messages in this batch
+                                for msg in thread_batch:
+                                    message = self._convert_to_message_model(msg)
+                                    if message:
+                                        thread_messages.append(message)
+                                
+                                # Update last_id for pagination
+                                thread_last_id = thread_batch[-1]['id']
+                                
+                                # Add a small delay to be gentle with the API
+                                time.sleep(0.5 + random.random())
+                            
+                            logger.info(f"Collected {len(thread_messages)} messages from thread {thread_name}")
+                            thread_data.append((thread_messages, thread_name))
             
+            return all_messages, channel_name, thread_data
+                
         except Exception as e:
             logger.error(f"Error collecting messages from channel {channel_id}: {str(e)}")
-            return [], channel_name
+            return [], channel_name, []
     
     def _convert_to_message_model(self, raw_message: Dict[str, Any]) -> Optional[DiscordMessage]:
         """

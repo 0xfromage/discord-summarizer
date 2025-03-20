@@ -9,7 +9,7 @@ to the rest of the application.
 import os
 from enum import Enum
 from typing import List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
 class LLMProvider(Enum):
@@ -27,6 +27,7 @@ class DiscordReaderConfig:
     user_token: str
     guild_id: Optional[str]
     channel_ids: List[str]
+    thread_ids: List[str] = field(default_factory=list) 
     
 @dataclass
 class DiscordWriterConfig:
@@ -125,6 +126,7 @@ def load_config() -> AppConfig:
     
     discord_guild_id = os.getenv('DISCORD_SOURCE_GUILD_ID')
     discord_channel_ids = _parse_channel_ids(os.getenv('DISCORD_SOURCE_CHANNEL_IDS', ''))
+    discord_thread_ids = _parse_channel_ids(os.getenv('DISCORD_SOURCE_THREAD_IDS', ''))
     
     # If no guild ID and no channel IDs, we can't know what to monitor
     if not discord_guild_id and not discord_channel_ids:
@@ -163,7 +165,8 @@ def load_config() -> AppConfig:
         discord_reader=DiscordReaderConfig(
             user_token=discord_user_token,
             guild_id=discord_guild_id,
-            channel_ids=discord_channel_ids
+            channel_ids=discord_channel_ids,
+            thread_ids=discord_thread_ids
         ),
         discord_writer=DiscordWriterConfig(
             bot_token=discord_bot_token,
