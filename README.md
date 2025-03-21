@@ -109,6 +109,179 @@ DAYS_TO_COLLECT=1
 DEBUG=false
 ```
 
+## Working with LLM Prompts
+
+The system uses a sophisticated prompt management system to generate appropriate summaries for different types of content.
+
+### Prompt Architecture
+
+The prompts are defined in `utils/prompts.py` and follow a hierarchical structure:
+
+1. **Default Prompts**: General-purpose summarization prompts
+2. **Specialized Prompts**: Context-specific prompts (currently optimized for DeFi and crypto)
+3. **Custom Overrides**: User-defined prompt replacements
+
+Each prompt consists of two components:
+
+- **System Prompt**: Instructions for the AI model's behavior and focus
+- **User Prompt**: Template for formatting the conversation data being summarized
+
+### Available Prompt Types
+
+The system currently supports the following prompt types:
+
+| Type      | Description                         | Best For                                                              |
+| --------- | ----------------------------------- | --------------------------------------------------------------------- |
+| `general` | Default summarization approach      | General discussions, community chats                                  |
+| `defi`    | DeFi and yield farming focused      | Channels discussing DeFi protocols, yield strategies, liquidity pools |
+| `crypto`  | Trading and market analysis focused | Channels focused on price action, trading strategies, market trends   |
+
+### Prompt Selection Priority
+
+When generating a summary, prompts are selected in the following order:
+
+1. Explicitly specified prompt type (if provided in the code or API call)
+2. Channel name based detection (scans for keywords in the channel name)
+3. Default general prompt (fallback option)
+
+### Customizing Prompts
+
+There are several ways to customize the prompts:
+
+#### 1. Modifying Existing Prompts
+
+Edit the `utils/prompts.py` file to change the default or specialized prompts:
+
+```python
+# Example: Modifying the default system prompt
+DEFAULT_SYSTEM_PROMPT = """
+Your updated system prompt here...
+"""
+
+# Example: Modifying a specialized prompt
+SPECIALIZED_PROMPTS = {
+    'defi': {
+        'system_prompt': """
+        Your updated DeFi system prompt here...
+        """,
+        'user_prompt': """
+        Your updated DeFi user prompt here...
+        """
+    },
+    # Other specialized prompts...
+}
+```
+
+#### 2. Adding New Specialized Prompts
+
+Add a new entry to the `SPECIALIZED_PROMPTS` dictionary in `utils/prompts.py`:
+
+```python
+SPECIALIZED_PROMPTS = {
+    # Existing prompts...
+
+    'gaming': {  # New prompt type
+        'system_prompt': """
+        You are a gaming community analyst focusing on extracting insights from
+        gaming discussions and community interactions.
+
+        Analysis Priorities:
+        1. Identify game updates, patches, and new features
+        2. Track community sentiment about different games
+        3. Note emerging trends or popular games
+        4. Highlight community events or tournaments
+        5. Extract useful tips, strategies, or game mechanics
+        """,
+        'user_prompt': """
+        Analyze the following gaming conversation for important updates,
+        community reactions, and useful gaming information.
+
+        Conversation Transcript:
+        {text}
+
+        Analysis Requirements:
+        - Highlight game updates, patches, or announcements
+        - Summarize community reactions to games or features
+        - Extract useful tips or strategies mentioned
+        - Note any upcoming events or releases
+        - Organize information by game or topic for clarity
+        """
+    }
+}
+```
+
+#### 3. Modifying the Prompt Selection Logic
+
+To change how prompts are selected based on channel names, modify the `get_prompts` method in `utils/prompts.py`:
+
+```python
+# Example: Adding detection for a gaming channel
+elif channel_name:
+    topic_lower = channel_name.lower()
+
+    # Check for DeFi keywords...
+    # Check for crypto keywords...
+
+    # Add new channel detection
+    elif any(term in topic_lower for term in ['gaming', 'game', 'xbox', 'playstation', 'nintendo', 'steam']):
+        prompts = cls.SPECIALIZED_PROMPTS['gaming']
+
+    else:
+        # Default to general
+        prompts = cls.SPECIALIZED_PROMPTS['general']
+```
+
+#### 4. Programmatic Override
+
+You can override prompts programmatically when calling the summarization service:
+
+```python
+# In your code where you call the summarizer
+summary = await summary_generator.generate_channel_summary(
+    channel_id="your_channel_id",
+    days=1,
+    prompt_type="custom_type",  # Use an existing type or create a new one
+    # Optional: Completely override prompts
+    override_system_prompt="Custom system prompt for this specific summary...",
+    override_user_prompt="Custom user prompt for this specific summary with {text} placeholder..."
+)
+```
+
+### Testing Prompt Changes
+
+To test your prompt changes without posting to Discord, use the prompt tester utility:
+
+```bash
+python prompt_tester.py --prompt your_prompt_type
+```
+
+This will:
+
+1. Load locally stored Discord messages (extract them first with `data_extractor.py`)
+2. Run your custom prompts against the data
+3. Save the generated summaries to the `prompt_test_results` directory
+
+For more targeted testing:
+
+```bash
+# Test a specific channel with your custom prompt
+python prompt_tester.py --channel 123456789012345678 --prompt your_prompt_type
+
+# Test with a longer history
+python prompt_tester.py --prompt your_prompt_type --days 7
+```
+
+### Prompt Best Practices
+
+When customizing prompts, keep these tips in mind:
+
+1. **Include the `{text}` placeholder** in user prompts to insert the conversation data
+2. **Keep system prompts focused** on the analysis priorities and overall approach
+3. **Keep user prompts specific** about the format and required information
+4. **Test changes thoroughly** using the prompt_tester before deploying
+5. **Consider character limits** of different LLM providers (DeepSeek has smaller context)
+6. **Add fallback API keys** in your .env file to ensure reliability
+
 ## Usage
 
 ### Standard Mode
@@ -159,22 +332,6 @@ By default, this will:
 2. Generate summaries using the configured LLM provider
 3. Post the summaries to your configured Discord channel
 
-#### Testing Prompts
-
-You can test different prompt configurations using the prompt tester:
-
-```bash
-python prompt_tester.py [--channel CHANNEL_ID] [--prompt PROMPT_TYPE] [--days DAYS]
-```
-
-Options:
-
-- `--channel` or `-c`: Specify a channel ID to test (default: all channels)
-- `--prompt` or `-p`: Specify a prompt type (e.g., 'defi', 'crypto')
-- `--days` or `-d`: Number of days of history to use (default: 4)
-
-This will save the generated summaries to the `prompt_test_results` directory.
-
 ## How It Works
 
 1. The bot uses your Discord user token to collect messages from the configured channels
@@ -182,19 +339,6 @@ This will save the generated summaries to the `prompt_test_results` directory.
 3. The collected messages are sent to an AI service for summarization
    - The bot will automatically fall back to an alternative AI service if the primary one fails
 4. The summary is posted to the configured Discord channel using a bot token
-
-## Project Structure
-
-- `main.py` - Main application entry point
-- `main_dummy.py` - Entry point for dummy/offline mode
-- `data_extractor.py` - Utility to extract Discord data for dummy mode
-- `prompt_tester.py` - Utility to test different prompt configurations
-- `config/` - Configuration management
-- `clients/` - Discord reader and writer implementations
-- `models/` - Data models for messages and summaries
-- `services/` - Core services (message collection, summary generation, scheduling)
-- `summarizers/` - AI summarization components
-- `utils/` - Helper utilities
 
 ## Troubleshooting
 
@@ -206,9 +350,9 @@ Common issues:
 
 3. **"Error posting summary to Discord"**: Check that your bot token is correct and that the bot has the necessary permissions (Send Messages, Embed Links).
 
-4. **Authentication issues**: If you change your Discord password, your user token will be invalidated. You'll need to obtain a new token.
+4. **"Authentication issues"**: If you change your Discord password, your user token will be invalidated. You'll need to obtain a new token.
 
-5. **Dummy mode errors**: If experiencing SSL or connection errors in dummy mode, try adding a delay with `await asyncio.sleep(5)` before program exits to allow all operations to complete.
+5. **"Prompt not working as expected"**: Use the prompt_tester.py utility to debug and refine your prompts before running the bot in production.
 
 Check the `logs/discord_summary_bot.log` file for detailed logging information.
 
